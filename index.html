@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Market Quiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .option-btn {
+            transition: background-color 0.3s, transform 0.2s;
+        }
+        .option-btn:hover {
+            transform: translateY(-2px);
+        }
+        .correct {
+            background-color: #22c55e !important; 
+            color: white !important;
+            border-color: #16a34a;
+        }
+        .incorrect {
+            background-color: #ef4444 !important;
+            color: white !important;
+            border-color: #dc2626;
+        }
+        .disabled {
+            pointer-events: none;
+            opacity: 0.8;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        #progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen p-4">
+
+    <div id="quiz-app" class="bg-white w-full max-w-2xl mx-auto p-6 sm:p-8 rounded-2xl shadow-lg">
+        <!-- Start Screen -->
+        <div id="start-screen">
+            <h1 class="text-2xl sm:text-3xl font-bold text-gray-800 text-center">Stock Market Challenge</h1>
+            <p class="text-gray-600 text-center mt-2 mb-8">Select your difficulty level to begin.</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <button onclick="startQuiz('Easy')" class="w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105">Easy</button>
+                <button onclick="startQuiz('Medium')" class="w-full sm:w-auto bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105">Medium</button>
+                <button onclick="startQuiz('Hard')" class="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-8 rounded-lg shadow-md transition-transform transform hover:scale-105">Hard</button>
+            </div>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loading-screen" class="text-center py-8" style="display: none;">
+            <div class="loader mx-auto mb-4"></div>
+            <p class="text-gray-600 font-semibold">Generating fresh quiz questions for you...</p>
+        </div>
+
+        <!-- Error Screen -->
+        <div id="error-screen" class="text-center py-8" style="display: none;">
+            <p class="text-red-600 font-semibold">Oops! We couldn't generate new questions.</p>
+            <p class="text-gray-500 mt-2">This might be due to a server issue or network problem.</p>
+            <button onclick="window.location.reload()" class="mt-4 bg-blue-600 text-white font-bold py-2 px-6 rounded-lg">Try Again</button>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" style="display: none;">
+            <div class="flex justify-between items-center border-b pb-4 mb-4">
+                <h1 class="text-xl sm:text-2xl font-bold text-gray-800">Stock Market Challenge</h1>
+                <div class="text-lg font-semibold text-gray-700">Score: <span id="score" class="text-blue-600">0</span></div>
+            </div>
+            
+            <!-- Progress Bar and Timer -->
+            <div class="mb-4">
+                 <div class="flex justify-between items-center mb-1 text-sm font-medium text-gray-600">
+                    <span>Progress</span>
+                    <span id="timer">0:30</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progress-bar" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div id="question-area">
+                <h2 id="question-text" class="text-xl font-semibold text-gray-800 mb-6 min-h-[60px]"></h2>
+                <div id="options-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <div id="feedback-area" class="mt-6 border-t pt-4 min-h-[100px]" style="display: none;">
+                <p id="explanation-text" class="text-gray-600"></p>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button id="next-btn" class="bg-blue-600 text-white font-bold py-3 px-6 rounded-lg shadow-md hover:bg-blue-700" style="display: none;">Next Question</button>
+            </div>
+        </div>
+        
+        <!-- Final Score Screen -->
+        <div id="final-screen" class="text-center" style="display: none;">
+            <h2 class="text-2xl font-bold text-gray-800">Quiz Complete!</h2>
+            <p class="text-lg mt-2">Your final score is:</p>
+            <p id="final-score" class="text-5xl font-extrabold text-blue-600 my-4">0</p>
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                <!-- --- FIX: Changed onclick to reload the page for a full reset --- -->
+                <button onclick="window.location.reload()" class="w-full sm:w-auto bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-8 rounded-lg">Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const dom = {
+            app: document.getElementById('quiz-app'),
+            screens: {
+                start: document.getElementById('start-screen'),
+                loading: document.getElementById('loading-screen'),
+                error: document.getElementById('error-screen'),
+                quiz: document.getElementById('quiz-screen'),
+                final: document.getElementById('final-screen'),
+            },
+            score: document.getElementById('score'),
+            timer: document.getElementById('timer'),
+            progressBar: document.getElementById('progress-bar'),
+            questionText: document.getElementById('question-text'),
+            optionsContainer: document.getElementById('options-container'),
+            feedbackArea: document.getElementById('feedback-area'),
+            explanationText: document.getElementById('explanation-text'),
+            nextBtn: document.getElementById('next-btn'),
+            finalScore: document.getElementById('final-score'),
+        };
+
+        let state = {
+            currentQuestionIndex: 0,
+            score: 0,
+            quizData: [],
+            userAnswers: [],
+            timerInterval: null,
+            timeLeft: 30,
+            difficulty: 'Medium',
+        };
+
+        const CACHE_DURATION = 15 * 60 * 1000; // 15 minutes
+
+        function showScreen(screenName) {
+            Object.values(dom.screens).forEach(screen => screen.style.display = 'none');
+            dom.screens[screenName].style.display = 'block';
+        }
+        
+        async function startQuiz(difficulty) {
+            state.difficulty = difficulty;
+            showScreen('loading');
+            
+            try {
+                state.quizData = await getQuizQuestions(difficulty);
+                if (!state.quizData || state.quizData.length === 0) throw new Error("No quiz data loaded.");
+                
+                resetState();
+                loadQuestion();
+                showScreen('quiz');
+            } catch(error) {
+                console.error("Failed to start game:", error);
+                showScreen('error');
+            }
+        }
+        
+        function resetState() {
+            state.currentQuestionIndex = 0;
+            state.score = 0;
+            state.userAnswers = [];
+            dom.score.textContent = 0;
+        }
+
+        async function fetchNewQuizData(difficulty, retryCount = 0, maxRetries = 3, delay = 1000) {
+            const apiUrl = '/api/get-quiz-questions';
+            
+            try {
+                const response = await fetch(apiUrl, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ difficulty: difficulty }) 
+                });
+                if (!response.ok) throw new Error(`API error: ${response.status}`);
+                const result = await response.json();
+                
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) return JSON.parse(jsonText);
+                throw new Error("Invalid response structure from API.");
+
+            } catch (error) {
+                console.error(`Attempt ${retryCount + 1} failed:`, error);
+                if (retryCount < maxRetries -1) {
+                    await new Promise(res => setTimeout(res, delay));
+                    return fetchNewQuizData(difficulty, retryCount + 1, maxRetries, delay * 2);
+                } else {
+                    throw error;
+                }
+            }
+        }
+        
+        async function getQuizQuestions(difficulty) {
+            const cacheKey = `quizData_${difficulty}`;
+            const timestampKey = `quizTimestamp_${difficulty}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            const cachedTimestamp = localStorage.getItem(timestampKey);
+
+            if (cachedData && cachedTimestamp && (Date.now() - cachedTimestamp < CACHE_DURATION)) {
+                console.log(`Loading ${difficulty} questions from cache.`);
+                return JSON.parse(cachedData);
+            } else {
+                console.log(`Cache stale or empty for ${difficulty}. Fetching new questions.`);
+                const newData = await fetchNewQuizData(difficulty);
+                localStorage.setItem(cacheKey, JSON.stringify(newData));
+                localStorage.setItem(timestampKey, Date.now());
+                return newData;
+            }
+        }
+
+        function loadQuestion() {
+            clearInterval(state.timerInterval);
+            state.timeLeft = 30;
+
+            const currentQuestion = state.quizData[state.currentQuestionIndex];
+            dom.questionText.textContent = currentQuestion.question;
+            dom.optionsContainer.innerHTML = '';
+            dom.optionsContainer.classList.remove('disabled');
+            dom.feedbackArea.style.display = 'none';
+            dom.nextBtn.style.display = 'none';
+            
+            updateProgressBar();
+
+            const shuffledOptions = [...currentQuestion.options].sort(() => Math.random() - 0.5);
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button');
+                button.textContent = option;
+                button.classList.add('option-btn', 'w-full', 'text-left', 'p-4', 'bg-gray-100', 'rounded-lg', 'border', 'border-gray-200', 'hover:bg-blue-100');
+                button.onclick = () => selectAnswer(button, option);
+                dom.optionsContainer.appendChild(button);
+            });
+            
+            startTimer();
+        }
+
+        function selectAnswer(button, selectedOption) {
+            clearInterval(state.timerInterval);
+            dom.optionsContainer.classList.add('disabled');
+            
+            const currentQuestion = state.quizData[state.currentQuestionIndex];
+            const isCorrect = selectedOption === currentQuestion.answer;
+            
+            state.userAnswers.push({
+                question: currentQuestion.question,
+                selected: selectedOption,
+                correctAnswer: currentQuestion.answer,
+                isCorrect: isCorrect
+            });
+
+            if (isCorrect) {
+                state.score++;
+                dom.score.textContent = state.score;
+                if (button) button.classList.add('correct');
+            } else {
+                if (button) button.classList.add('incorrect');
+                Array.from(dom.optionsContainer.children).forEach(btn => {
+                    if (btn.textContent === currentQuestion.answer) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+            
+            dom.explanationText.textContent = currentQuestion.explanation;
+            dom.feedbackArea.style.display = 'block';
+            
+            if (state.currentQuestionIndex < state.quizData.length - 1) {
+                dom.nextBtn.style.display = 'block';
+            } else {
+                setTimeout(showFinalScreen, 1500);
+            }
+        }
+        
+        function startTimer() {
+            dom.timer.textContent = `0:${state.timeLeft.toString().padStart(2, '0')}`;
+            state.timerInterval = setInterval(() => {
+                state.timeLeft--;
+                dom.timer.textContent = `0:${state.timeLeft.toString().padStart(2, '0')}`;
+                if (state.timeLeft <= 0) {
+                    clearInterval(state.timerInterval);
+                    selectAnswer(null, null); // Timeout is handled as an incorrect answer
+                }
+            }, 1000);
+        }
+
+        function updateProgressBar() {
+            const progress = ((state.currentQuestionIndex + 1) / state.quizData.length) * 100;
+            dom.progressBar.style.width = `${progress}%`;
+        }
+        
+        function showFinalScreen() {
+            dom.finalScore.textContent = `${state.score} / ${state.quizData.length}`;
+            showScreen('final');
+        }
+        
+        dom.nextBtn.addEventListener('click', () => {
+            state.currentQuestionIndex++;
+            loadQuestion();
+        });
+
+        // Initial setup
+        showScreen('start');
+    </script>
+</body>
+</html>
+
